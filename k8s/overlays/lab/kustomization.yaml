@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: payments
+
+resources:
+  - ../../base
+
+images:
+  - name: payments-api
+    newName: ghcr.io/abdelrahmanwael97/secure-payments-api
+    newTag: 4bc0656d4b0730901dba90c1fb1a3746922ce979
