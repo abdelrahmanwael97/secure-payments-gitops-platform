@@ -1,212 +1,419 @@
-# secure-payments-gitops-platform
-A complete delivery lifecycle of a simulated payments API
+
 # Secure Payments GitOps Platform
 
-A hands-on DevOps and Kubernetes security lab demonstrating the complete
-delivery lifecycle of a simulated payments API: automated testing, container
-builds, security scanning, GitOps-based deployment, Kubernetes hardening,
-monitoring, and operational troubleshooting.
+An end-to-end DevOps project demonstrating containerization, CI automation, Kubernetes deployment, and GitOps-based continuous delivery for a simulated payments API.
 
-> Scope: personal lab project. The payment endpoint is simulated and does not
-> process real transactions or store payment-card information. This is a
-> learning environment, not a production payment platform.
+## Overview
 
-## Objectives
+The Secure Payments GitOps Platform is a hands-on DevOps project built to demonstrate an automated application delivery workflow.
 
-- Build and package an application using Docker.
-- Automate application validation and image publishing with GitHub Actions.
-- Deploy to a Kubernetes cluster bootstrapped with kubeadm.
-- Use Argo CD to reconcile Kubernetes resources from Git.
-- Apply Kubernetes workload and network security controls.
-- Collect application metrics using Prometheus.
-- Visualize performance and health using Grafana.
-- Document investigation and recovery procedures as operational runbooks.
+The application is a Python FastAPI service that exposes endpoints for health checks and simulated payment creation and retrieval.
+
+The project implements:
+
+- Automated application testing using GitHub Actions.
+- Docker image creation and publishing to GitHub Container Registry (GHCR).
+- Kubernetes cluster provisioning using kubeadm.
+- Container networking using Calico.
+- Kubernetes manifest management using Kustomize.
+- GitOps-based deployment and reconciliation using Argo CD.
+- Container and Kubernetes workload security configurations.
+
+The payment application is intended for demonstration purposes only. It does not process real financial transactions or integrate with payment gateways.
 
 ## Architecture
 
-1. A developer pushes application code or opens a pull request.
-2. GitHub Actions runs automated tests, linting, and security checks.
-3. A successful main-branch workflow builds and publishes a versioned
-   application image to GitHub Container Registry (GHCR).
-4. The deployment configuration is updated with the new image version.
-5. Argo CD detects the Git change and reconciles the Kubernetes workload.
-6. Kubernetes runs the application with explicit resource and security settings.
-7. Prometheus collects metrics, while Grafana presents dashboards and alerts.
+```mermaid
+flowchart TD
+    A[Developer / OCI VM] -->|Git commit and push| B[GitHub Repository]
 
-Git is the desired-state source of truth. Application CI builds and validates
-artifacts; Argo CD is responsible for reconciling deployment state.
+    B -->|Push or Pull Request| C[GitHub Actions]
+
+    subgraph CI[Continuous Integration]
+        C --> D[Run Python Tests]
+        D --> E[Build Docker Image]
+        E --> F[Publish Image to GHCR]
+    end
+
+    F --> G[GitHub Container Registry]
+
+    B -->|Kubernetes Manifests| H[Argo CD]
+
+    H -->|Reconciliation and Sync| I[Kubernetes Cluster]
+
+    G -->|Image Pull| I
+
+    subgraph Kubernetes
+        I --> J[Payments API Deployment]
+        J --> K[Payments API Pods]
+        I --> L[ClusterIP Service]
+    end
+```
 
 ## Technology Stack
 
-- Docker: container image packaging.
-- GitHub Actions: CI workflow, validation, image build, and publication.
-- GitHub Container Registry: versioned container images.
-- Ubuntu Server, containerd, kubeadm, kubelet, and kubectl: Kubernetes lab.
-- Calico: cluster networking and NetworkPolicy enforcement.
-- Kubernetes and Kustomize: declarative application configuration.
-- Argo CD: GitOps reconciliation and deployment health.
-- Prometheus: metric collection and alert rules.
-- Grafana: dashboards and investigation.
-- Trivy: image and/or filesystem vulnerability scanning.
-- Helm: installation of the monitoring stack.
-
-## Kubernetes Security Controls
-
-The application workload is configured to use, where applicable:
-
-- A non-root runtime user.
-- `allowPrivilegeEscalation: false`.
-- A read-only root filesystem.
-- Dropped Linux capabilities.
-- The RuntimeDefault seccomp profile.
-- CPU and memory requests and limits.
-- Liveness and readiness probes.
-- A dedicated ServiceAccount and disabled automatic token mounting when
-  the workload does not need Kubernetes API access.
-- Namespace Pod Security Admission enforcement with the `restricted` profile.
-- NetworkPolicies that limit allowed pod traffic.
-- Versioned images rather than an unpinned `latest` tag.
-
-The Dockerfile uses an appropriate minimal base image, avoids embedding
-credentials, and runs the application as a non-root user.
-
-The CI workflow scans the source and/or image with Trivy. A passing scan is
-not proof that an image is vulnerability-free; findings must be assessed
-against severity, exploitability, and the application's exposure.
-
-## CI/CD and GitOps
-
-### Continuous integration
-
-The GitHub Actions workflow is intended to:
-
-1. Check out the repository.
-2. Install application dependencies.
-3. Run automated tests and linting.
-4. Build the Docker image.
-5. Perform the configured security scans.
-6. Publish a uniquely versioned image on the permitted branch/event.
-7. Update the deployment configuration with the new image version.
-
-The workflow uses the minimum required token permissions. Package publishing
-uses the GitHub token rather than a hard-coded registry password.
-
-### Continuous delivery
-
-Argo CD watches the repository path containing the lab manifests.
-
-The desired image version is recorded in Git. Argo CD compares this desired
-state with the live cluster and reconciles permitted differences according
-to the configured sync policy.
-
-A rollback is performed by restoring the previous known-good version in Git
-and allowing Argo CD to reconcile it. A manual change to the live cluster is
-not a substitute for updating the desired state.
-
-## Observability
-
-The application exposes:
-
-- A liveness endpoint.
-- A readiness endpoint.
-- A Prometheus-compatible metrics endpoint.
-
-The Grafana dashboard is designed to show:
-
-- Request rate.
-- Request error rate.
-- Request latency, including a percentile view where histogram data is available.
-- Application and Kubernetes workload health.
-
-An example alert detects application unavailability or an elevated error rate.
-Every alert should have a documented investigation or recovery procedure.
+| Category | Technologies |
+|---|---|
+| Application | Python, FastAPI, Uvicorn |
+| Version Control | Git, GitHub |
+| CI | GitHub Actions |
+| Containerization | Docker |
+| Container Registry | GitHub Container Registry (GHCR) |
+| Orchestration | Kubernetes, kubeadm, kubectl |
+| Container Runtime | containerd |
+| CNI | Calico |
+| Package Management | Helm |
+| Kubernetes Configuration | Kustomize |
+| Continuous Delivery | Argo CD |
+| Infrastructure | Oracle Cloud Infrastructure (OCI) |
 
 ## Repository Structure
 
-- `app/`: application source and tests.
-- `.github/workflows/`: CI configuration.
-- `k8s/base/`: reusable Kubernetes resources.
-- `k8s/overlays/lab/`: lab-specific configuration.
-- `argocd/`: Argo CD Application resource.
-- `monitoring/`: metric scraping and alert configuration.
-- `dashboards/`: exported Grafana dashboard.
-- `docs/runbooks/`: troubleshooting and operational procedures.
+```text
+secure-payments-gitops-platform/
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yaml
+│
+├── app/
+│   ├── src/
+│   │   └── payment_api/
+│   │       └── main.py
+│   ├── tests/
+│   │   └── test_api.py
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   └── requirements.txt
+│
+├── k8s/
+│   ├── base/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── kustomization.yaml
+│   │
+│   └── overlays/
+│       └── lab/
+│           └── kustomization.yaml
+│
+├── argocd/
+│   └── payments-app.yaml
+│
+├── dashboards/
+├── monitoring/
+├── docs/
+│   └── runbooks/
+│
+├── .gitignore
+└── README.md
+```
 
-## Lab Setup
+## Application
 
-The cluster runs locally in VMware on an Ubuntu Server VM. Kubernetes is
-installed with kubeadm and containerd; Calico supplies pod networking.
+The Payments API is implemented using FastAPI.
 
-After the cluster and CNI are healthy:
+### API Endpoints
 
-1. Install Helm.
-2. Install Argo CD in the `argocd` namespace.
-3. Configure the Argo CD Application to watch `k8s/overlays/lab`.
-4. Install `kube-prometheus-stack` in a dedicated monitoring namespace.
-5. Configure metric discovery and apply the application manifests.
-6. Verify rollout health, probes, security settings, and metric collection.
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Application health endpoint |
+| GET | `/ready` | Application readiness endpoint |
+| POST | `/payments` | Creates a simulated payment |
+| GET | `/payments/{payment_id}` | Retrieves a simulated payment |
 
-The lab services are accessed locally using `kubectl port-forward`.
-No administrative interfaces are exposed directly to the public internet.
+The application validates payment request data using Pydantic and generates unique payment identifiers using UUIDs.
 
-## Verification and Demonstration
+Payment records are stored in an in-memory Python dictionary.
 
-A successful demonstration should show:
+### Running Locally
 
-- A passing automated test and CI workflow.
-- A versioned image published to GHCR.
-- A Kubernetes Deployment and Service running in the cluster.
-- The expected security context on the running Pod.
-- NetworkPolicy resources applied and tested.
-- Argo CD reporting a healthy, synchronized application.
-- A Git change resulting in the expected application version.
-- Prometheus scraping the application metrics.
-- A Grafana dashboard and at least one useful alert rule.
-- A troubleshooting runbook for a failed rollout or increased error rate.
+Create and activate a virtual environment:
 
-## Operational Runbooks
+```bash
+cd app
 
-### Failed Pod or rollout
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-Inspect the pod state, Events, current and previous container logs, image
-pull status, resource availability, probes, and security-context failures.
-Record the actual root cause rather than immediately deleting or restarting
-the workload.
+Install dependencies:
 
-### Elevated error rate
+```bash
+pip install -r requirements.txt
+```
 
-Confirm the alert and its time window, check whether the issue began after a
-deployment, inspect application logs and request metrics, verify dependency
-health, and decide whether to roll back the image or mitigate the failing
-dependency. Validate recovery after the change.
+Start the API:
 
-## Design Decisions and Limitations
+```bash
+PYTHONPATH=src uvicorn payment_api.main:app \
+  --host 0.0.0.0 \
+  --port 8080
+```
 
-- kubeadm is used to understand Kubernetes bootstrap and node components,
-  rather than delegating cluster creation to a managed Kubernetes service.
-- A single-node local cluster keeps the project affordable and reproducible.
-- The single-node lab does not provide high availability or multiple failure
-  domains.
-- GitOps keeps desired state in version control and separates artifact
-  creation from deployment reconciliation.
-- Public lab images and repositories are used where appropriate; secrets and
-  personal credentials are never committed.
-- This simulated API does not represent real payment processing, compliance
-  certification, or a production-grade financial platform.
+Test the health endpoint:
+
+```bash
+curl http://localhost:8080/health
+```
+
+Interactive API documentation:
+
+```text
+http://localhost:8080/docs
+```
+
+### Running Automated Tests
+
+```bash
+cd app
+PYTHONPATH=src pytest -v
+```
+
+The test suite validates application health, readiness, payment creation, invalid request handling, and payment retrieval errors.
+
+## Containerization
+
+The application is containerized using Docker and based on the `python:3.12-slim` image.
+
+The Dockerfile:
+
+- Installs application dependencies.
+- Copies the application source code.
+- Creates a dedicated non-root application user.
+- Runs Uvicorn as the non-root user.
+- Exposes application port 8080.
+
+The `.dockerignore` file excludes unnecessary files such as Python caches, local virtual environments, tests, and environment files from the Docker build context.
+
+Build the image:
+
+```bash
+docker build -t secure-payments-api:local ./app
+```
+
+Run the container:
+
+```bash
+docker run -d \
+  --name payments-api \
+  -p 8080:8080 \
+  secure-payments-api:local
+```
+
+## Continuous Integration — GitHub Actions
+
+The CI pipeline is defined in:
+
+```text
+.github/workflows/ci.yaml
+```
+
+It is triggered by:
+
+- Pushes to the `main` branch.
+- Pull requests targeting the `main` branch.
+
+The workflow consists of three jobs.
+
+### 1. Run API Tests
+
+- Checks out the repository.
+- Sets up Python 3.12.
+- Installs application dependencies.
+- Executes automated tests using pytest.
+
+### 2. Build Docker Image
+
+- Checks out the repository.
+- Builds the Docker image using the application Dockerfile.
+- Uses the Git commit SHA as the image tag.
+
+### 3. Publish Image to GHCR
+
+- Runs after successful testing and image building.
+- Publishes only for pushes to `main`.
+- Authenticates using GitHub's automatically provided `GITHUB_TOKEN`.
+- Uses the minimum required package permissions.
+
+The image is published using a commit-specific tag:
+
+```text
+ghcr.io/abdelrahmanwael97/secure-payments-api:<commit-sha>
+```
+
+Using the Git commit SHA provides traceability between the application source revision and the published container image.
+
+## Kubernetes Platform
+
+The lab environment was built using a single-node Kubernetes cluster on an OCI virtual machine.
+
+### Cluster Components
+
+| Component | Purpose |
+|---|---|
+| kubeadm | Kubernetes cluster initialization |
+| kubelet | Kubernetes node agent |
+| kubectl | Kubernetes administration |
+| containerd | Container runtime |
+| Calico | Pod networking and NetworkPolicy support |
+
+The cluster was initialized using kubeadm, and Calico was installed through the Tigera Operator.
+
+The single-node lab configuration allowed workloads to run on the control-plane node.
+
+### Kubernetes Resources
+
+The application is deployed through the following resources:
+
+- **Deployment:** Maintains two Payments API replicas.
+- **Service:** Exposes the application internally using ClusterIP.
+- **Namespace:** Separates the application into the `payments` namespace.
+
+The Service exposes port 80 and forwards traffic to the application container on port 8080.
+
+### Workload Security
+
+The Kubernetes Deployment includes several security controls:
+
+- `runAsNonRoot: true` to prevent root execution.
+- Explicit non-root UID and GID.
+- `allowPrivilegeEscalation: false`.
+- Dropping all unnecessary Linux capabilities.
+- `readOnlyRootFilesystem: true`.
+- Seccomp profile set to `RuntimeDefault`.
+- A dedicated temporary `emptyDir` volume for `/tmp`.
+
+### Resource Management and Health Checks
+
+The Deployment defines CPU and memory requests and limits to control workload resource consumption.
+
+It also includes:
+
+- **Readiness probe:** Uses `/ready` to determine whether the Pod should receive traffic.
+- **Liveness probe:** Uses `/health` to determine whether the container should be restarted.
+
+## Kubernetes Configuration with Kustomize
+
+Kustomize is used to organize the Kubernetes configuration into a reusable base and an environment-specific overlay.
+
+The base contains:
+
+- Deployment.
+- Service.
+- Kustomization definition.
+
+The lab overlay:
+
+- References the base configuration.
+- Sets the `payments` namespace.
+- Replaces the placeholder image with the GHCR repository and commit-specific image tag.
+
+Render the final Kubernetes manifests:
+
+```bash
+kubectl kustomize k8s/overlays/lab
+```
+
+## GitOps Continuous Delivery — Argo CD
+
+Argo CD was installed into the Kubernetes cluster using Helm.
+
+The Argo CD Application resource is defined in:
+
+```text
+argocd/payments-app.yaml
+```
+
+It specifies:
+
+| Configuration | Value |
+|---|---|
+| Repository | GitHub project repository |
+| Target revision | `main` |
+| Application path | `k8s/overlays/lab` |
+| Destination | Local Kubernetes cluster |
+| Namespace | `payments` |
+
+The Application uses automated synchronization with:
+
+- **Automated Sync:** Applies desired configuration from Git.
+- **Prune:** Removes managed resources deleted from the desired configuration.
+- **Self-Heal:** Reconciles supported manual changes that cause configuration drift.
+- **CreateNamespace:** Automatically creates the application namespace.
+
+The Application resource is initially registered with Kubernetes:
+
+```bash
+kubectl apply -f argocd/payments-app.yaml
+```
+
+Argo CD then monitors the configured Git repository and reconciles the Kubernetes cluster with the desired configuration.
+
+The application was verified through the Argo CD dashboard with successful synchronization and healthy workload status.
+
+## Deployment Verification
+
+Check the Argo CD Application:
+
+```bash
+kubectl get applications -n argocd
+```
+
+Check the application Pods:
+
+```bash
+kubectl get pods -n payments -o wide
+```
+
+Check the Deployment and Service:
+
+```bash
+kubectl get deployments,services -n payments
+```
+
+Access the API through port forwarding:
+
+```bash
+kubectl port-forward -n payments \
+  svc/payments-api 8081:80
+```
+
+Test the application:
+
+```bash
+curl http://localhost:8081/health
+curl http://localhost:8081/ready
+```
+
+## Project Scope and Limitations
+
+This project demonstrates a working CI and GitOps-based delivery workflow, but it is not a production payment-processing platform.
+
+Current limitations include:
+
+- Payment records are stored in application memory and are not persisted in a database.
+- The application does not implement real payment gateway integration or authentication.
+- The Kubernetes environment is a single-node lab cluster, not a highly available production cluster.
+- The Kubernetes image tag is updated through Git rather than automatically by the CI pipeline.
+- Prometheus and Grafana monitoring, Terraform provisioning, image vulnerability scanning, and image signing were not implemented in this version.
+
+Because payment data is stored in memory, multiple application replicas do not share the same payment records. A production implementation would require persistent shared storage.
+
+The OCI lab resources were terminated after the project was validated to avoid ongoing cloud costs. The GitHub repository and published container image remain available.
 
 ## Future Improvements
 
-- Separate application source and environment configuration into two repos.
-- Pin deployed images by digest and introduce image signing and verification.
-- Add software bill of materials generation and policy checks.
-- Add Falco runtime detection where supported by the lab environment.
-- Add resource quotas and additional admission controls.
-- Introduce automated deployment promotion between environments.
-- Validate the design against a multi-node cluster and failure scenarios.
-- Integrate production-grade secret management and a managed state store
-  where appropriate.
+Potential next improvements include:
 
-## Project Status
+- Integrating Prometheus and Grafana for application and cluster monitoring.
+- Adding automated container image vulnerability scanning.
+- Introducing image signing and software supply-chain security.
+- Automating GitOps manifest updates after successful image publication.
+- Provisioning cloud infrastructure using Terraform.
+- Introducing persistent application storage and authentication.
+- Implementing multi-environment deployment and controlled promotion.
+- Expanding to a highly available Kubernetes architecture.
 
-Personal lab project. This README should be updated to reflect only the
-components that have actually been built, tested, and demonstrated.
+---
+
+**Disclaimer:** This is a learning and demonstration project. It is not intended for processing real payments or handling production financial data.
